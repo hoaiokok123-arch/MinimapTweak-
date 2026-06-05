@@ -7,40 +7,49 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    # Cấu hình chạy trên hệ điều hành macOS (phù hợp với môi trường Xcode/Clang để build tweak iOS)
+    runs-on: macos-15
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout mã nguồn
+      uses: actions/checkout@v4
 
-    - name: Cài đặt nâng cao và clone Theos
+    - name: Tải và cài đặt cấu trúc khung phát triển Theos
       run: |
         git clone --recursive https://github.com/theos/theos.git $HOME/theos
         echo "THEOS=$HOME/theos" >> $GITHUB_ENV
         echo "$HOME/theos/bin" >> $GITHUB_PATH
 
-    - name: Cài đặt iOS SDK và công cụ ldid
+    - name: Cài đặt iOS SDK và Tự động sửa lỗi ldid
       run: |
-        # SỬA Ở ĐÂY: Tạo thư mục sdks và clone chính xác SDK 14.5 về thay vì dùng curl zip
+        # Tạo thư mục chứa SDKs
         mkdir -p $HOME/theos/sdks
+        
+        # Clone repo chứa các SDK sạch từ theos chính thức
         git clone --depth=1 https://github.com/theos/sdks.git $HOME/theos/sdks-repo
+        
+        # Di chuyển duy nhất bản SDK 14.5 cần dùng vào đúng vị trí
         mv $HOME/theos/sdks-repo/iPhoneOS14.5.sdk $HOME/theos/sdks/
+        
+        # Xóa bỏ thư mục tạm để giải phóng không gian bộ nhớ
         rm -rf $HOME/theos/sdks-repo
         
-        # Tải ldid hỗ trợ ký nhận tweak (bản dành cho macOS)
-        curl -L -o $HOME/theos/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-2/ldid-macos-x86_64
-        chmod +x $HOME/theos/bin/ldid
+        # SỬA LỖI TẠI ĐÂY: Dùng lệnh tích hợp sẵn của Theos để tự động nhận diện 
+        # hệ điều hành (macOS arm64) và tải về bản ldid chuẩn, thay vì tải thủ công link lỗi.
+        $HOME/theos/bin/doctor
 
-    - name: Tiến hành Build Tweak
+    - name: Tiến hành Biên dịch Tweak (Build Package)
       run: |
         export THEOS=$HOME/theos
+        # Định nghĩa target biên dịch: Sử dụng SDK 14.5, hỗ trợ tối thiểu từ iOS 14.0 trở lên
         export TARGET=iphone:clang:14.5:14.0
         make clean
         make package FINALPACKAGE=1
 
-    - name: Tải file kết quả lên GitHub Artifacts
+    - name: Lưu trữ và tải lên file kết quả (.deb và .dylib)
       uses: actions/upload-artifact@v4
       with:
-        name: MinimapTweak-Output
+        name: MinimapTweak-Build
         path: |
           .theos/obj/debug/*.dylib
           packages/*.deb
