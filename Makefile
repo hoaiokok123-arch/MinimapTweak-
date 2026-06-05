@@ -7,9 +7,13 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = minimaptweak
 
-minimaptweak_FILES = Tweak.xm MinimapView.m
+# CHỈ LIỆT KÊ Tweak.xm ở đây, KHÔNG liệt kê MinimapView.m
+minimaptweak_FILES = Tweak.xm
 minimaptweak_CFLAGS = -fobjc-arc
 minimaptweak_FRAMEWORKS = UIKit CoreGraphics Foundation QuartzCore
+
+# Thêm MinimapView.m như một file riêng biệt KHÔNG qua Logos
+minimaptweak_OBJC_FILES = MinimapView.m
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
