@@ -1,7 +1,6 @@
 DEBUG = 1
 ARCHS = arm64 arm64e
 TARGET = iphone:clang:latest:14.0
-
 INSTALL_TARGET_PROCESSES = Albion Online
 
 include $(THEOS)/makefiles/common.mk
@@ -12,6 +11,10 @@ minimaptweak_FILES = Tweak.xm
 minimaptweak_CFLAGS = -fobjc-arc
 minimaptweak_FRAMEWORKS = UIKit CoreGraphics Foundation
 minimaptweak_OBJC_FILES = MinimapView.m
+
+# Bỏ qua signing hoàn toàn
+export CODESIGN_ALLOCATE = /bin/cat
+export CODESIGN = /bin/cat
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
