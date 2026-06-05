@@ -28,11 +28,11 @@ static void CreateMinimap() {
         // Khởi tạo Timer để liên tục cập nhật và vẽ lại dữ liệu (Mỗi 0.1 giây)
         g_minimapTimer = [NSTimer scheduledTimerWithTimeInterval:0.1 repeats:YES block:^(NSTimer * _Nonnull timer) {
             if (g_minimap) {
-                // CHẠY THỬ NGHIỆM: Fake tọa độ di chuyển để xem Minimap hoạt động
+                // CHẠY THỬ NGHIỆM: Giả lập tọa độ di chuyển xoay tròn để xem Minimap hoạt động vẽ
                 static CGFloat angle = 0;
                 angle += 0.05;
                 
-                // Giả lập vị trí 2 con quái vật xung quanh người chơi
+                // Giả lập vị trí 2 con quái vật xung quanh người chơi (tọa độ tương đối trong khung 120x120)
                 CGPoint monster1 = CGPointMake(60 + 30 * cos(angle), 60 + 30 * sin(angle));
                 CGPoint monster2 = CGPointMake(40, 80);
                 
@@ -57,7 +57,8 @@ static void CreateMinimap() {
     %orig;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_now_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        // Chờ 2 giây sau khi view xuất hiện. Đã sửa sang chuẩn int64_t
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             CreateMinimap();
         });
     });
