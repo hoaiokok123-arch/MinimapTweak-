@@ -1,0 +1,121 @@
+name: Build Minimap Tweak
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Cho phép chạy thủ công
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Theos
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git build-essential unzip curl libssl-dev libncurses-dev
+        git clone --recursive https://github.com/theos/theos.git $HOME/theos
+        echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+        echo "$HOME/theos/bin" >> $GITHUB_PATH
+    
+    - name: Setup iOS SDK
+      run: |
+        mkdir -p $HOME/theos/sdks
+        curl -L -o $HOME/theos/sdks/iPhoneOS14.5.sdk.zip https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.zip
+        cd $HOME/theos/sdks && unzip -o iPhoneOS14.5.sdk.zip
+        echo "SDK=iPhoneOS14.5" >> $GITHUB_ENV
+    
+    - name: Install ldid
+      run: |
+        curl -L -o $HOME/theos/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-2/ldid
+        chmod +x $HOME/theos/bin/ldid
+    
+    - name: Build Tweak
+      run: |
+        export THEOS=$HOME/theos
+        export TARGET=iphone:clang:latest:14.0
+        make clean
+        make package
+      continue-on-error: false
+    
+    - name: List build artifacts
+      run: |
+        echo "=== Build output ==="
+        ls -la .theos/obj/debug/ 2>/dev/null || echo "No .theos/obj/debug/"
+        echo "=== Packages ==="
+        ls -la packages/ 2>/dev/null || echo "No packages/"
+        echo "=== Current directory ==="
+        ls -la
+    
+    - name: Find dylib file
+      id: find_dylib
+      run: |
+        DYLIB_PATH=$(find . -name "*.dylib" -type f | head -1)
+        DEB_PATH=$(find . -name "*.deb" -type f | head -1)
+        
+        if [ -n "$DYLIB_PATH" ]; then
+          echo "dylib_path=$DYLIB_PATH" >> $GITHUB_OUTPUT
+          echo "Dylib found: $DYLIB_PATH"
+        else
+          echo "No dylib found, checking .theos/obj/debug/"
+          ls -la .theos/obj/debug/ 2>/dev/null || echo "Directory empty"
+          # Fallback: try to find .theos/obj/debug/*.dylib
+          if [ -f ".theos/obj/debug/minimaptweak.dylib" ]; then
+            echo "dylib_path=.theos/obj/debug/minimaptweak.dylib" >> $GITHUB_OUTPUT
+          fi
+        fi
+        
+        if [ -n "$DEB_PATH" ]; then
+          echo "deb_path=$DEB_PATH" >> $GITHUB_OUTPUT
+          echo "Deb found: $DEB_PATH"
+        fi
+    
+    - name: Upload dylib artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MinimapTweak.dylib
+        path: |
+          ${{ steps.find_dylib.outputs.dylib_path }}
+          .theos/obj/debug/*.dylib
+        if-no-files-found: warn
+    
+    - name: Upload deb artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MinimapTweak.deb
+        path: |
+          ${{ steps.find_dylib.outputs.deb_path }}
+          packages/*.deb
+        if-no-files-found: warn
+    
+    - name: Create Release
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v1.0.${{ github.run_number }}
+        name: Release v1.0.${{ github.run_number }}
+        body: |
+          ## Minimap Tweak for Albion Online
+          
+          ### Build #${{ github.run_number }}
+          - Build time: ${{ github.event.head_commit.timestamp }}
+          - Commit: ${{ github.sha }}
+          
+          ### Installation
+          1. Download `MinimapTweak.dylib`
+          2. Rename to `MinimapTweak.zip`
+          3. Inject via TrollFools
+          
+          ### Files included
+          - MinimapTweak.dylib - Direct inject file
+          - MinimapTweak.deb - Cydia package
+        files: |
+          ${{ steps.find_dylib.outputs.dylib_path }}
+          packages/*.deb
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
