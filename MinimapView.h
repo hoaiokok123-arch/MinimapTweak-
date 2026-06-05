@@ -13,7 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
                          y:(CGFloat)y 
                  direction:(CGFloat)direction
                   monsters:(NSArray<NSValue *> *)monsters
-                   dungeons:(NSArray<NSValue *> *)dungeons;
+                  dungeons:(NSArray<NSValue *> *)dungeons;
 
 - (void)updatePlayerPosition:(CGPoint)position direction:(CGFloat)direction;
 - (void)updateMonsters:(NSArray<NSValue *> *)monsters;
