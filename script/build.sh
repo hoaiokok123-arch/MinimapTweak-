@@ -26,10 +26,14 @@ if [ ! -d "$THEOS/sdks/iPhoneOS14.5.sdk" ]; then
     echo "✅ iOS SDK installed"
 fi
 
-# Install ldid
+# Install ldid phù hợp hệ điều hành máy local
 if [ ! -f "$THEOS/bin/ldid" ]; then
     echo "🔑 Installing ldid..."
-    curl -L -o $THEOS/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-2/ldid
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        curl -L -o $THEOS/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-2/ldid-macos-x86_64
+    else
+        curl -L -o $THEOS/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-2/ldid-linux-x86_64
+    fi
     chmod +x $THEOS/bin/ldid
     echo "✅ ldid installed"
 fi
@@ -37,7 +41,7 @@ fi
 # Clean and build
 echo "🏗️ Building..."
 make clean
-make package
+make package TARGET=iphone:clang:14.5:14.0
 
 echo "========================================="
 echo "✅ Build successful!"
