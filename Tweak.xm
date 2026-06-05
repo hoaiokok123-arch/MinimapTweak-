@@ -4,113 +4,103 @@
 #import "MinimapView.h"
 
 static MinimapView *g_minimap = nil;
-static void *g_localPlayer = nil;
-
-// ============================================
-// OFFSETS TỪ DUMP.CS (đã xác định)
-// ============================================
-// Transform localPlayer offset: 0x20
-// WorldStateManager.get_Instance RVA: 0x246309C
-// GetPosition RVA: 0x1EB91C4, 0x20F011C
-// Update RVA: 0x1D3CF38
-// ConfigureAsLocalPlayer RVA: 0x2564608
 
 // ============================================
 // HÀM TIỆN ÍCH ĐỌC TỌA ĐỘ
 // ============================================
-static CGPoint ReadVector3Position(void *vector3Ptr) {
-    if (!vector3Ptr) return CGPointZero;
-    float x = *(float *)((uintptr_t)vector3Ptr + 0);
-    float y = *(float *)((uintptr_t)vector3Ptr + 4);
-    float z = *(float *)((uintptr_t)vector3Ptr + 8);
-    return CGPointMake(x, z); // Trong game thường x,z là x,y trên map
+static CGPoint ReadPositionFromObject(void *obj) {
+    if (!obj) return CGPointZero;
+    
+    // Thử đọc qua selector getPosition nếu có
+    if ([obj respondsToSelector:@selector(position)]) {
+        CGPoint pos = [(id)obj position];
+        return pos;
+    }
+    
+    // Fallback: đọc từ memory offset (cần reverse để biết offset chính xác)
+    // float x = *(float *)((uintptr_t)obj + 0x30);
+    // float y = *(float *)((uintptr_t)obj + 0x34);
+    
+    return CGPointZero;
 }
 
 // ============================================
-// TÌM LOCAL PLAYER
+// TẠO MINIMAP
 // ============================================
-static void *FindLocalPlayer() {
-    // Cách 1: Tìm qua WorldStateManager (RVA: 0x246309C)
-    // Địa chỉ này cần được tính toán runtime
-    // void *(*getWorldStateManager)() = (void *(*)())0x246309C;
-    // void *worldStateManager = getWorldStateManager();
+static void CreateMinimap() {
+    if (g_minimap) return;
     
-    // Cách 2: Tìm qua Transform localPlayer (offset 0x20 từ camera hoặc manager)
-    // Tạm thời dùng cách tìm object theo tag
-    // TODO: Cần hook vào game để lấy chính xác
+    UIWindow *window = nil;
+    if (@available(iOS 13.0, *)) {
+        for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if (scene.activationState == UISceneActivationStateForegroundActive) {
+                window = scene.windows.firstObject;
+                break;
+            }
+        }
+    }
+    if (!window) {
+        window = [UIApplication sharedApplication].windows.firstObject;
+    }
     
-    return NULL;
+    if (window) {
+        CGRect frame = CGRectMake(window.bounds.size.width - 130, 60, 120, 120);
+        g_minimap = [[MinimapView alloc] initWithFrame:frame];
+        g_minimap.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
+        [window addSubview:g_minimap];
+        NSLog(@"[Minimap] ✅ Created minimap");
+    }
 }
 
 // ============================================
 // HOOK UPDATE - Cập nhật minimap mỗi frame
 // ============================================
-%hook SomeUpdateClass
+%hook NSObject
 
+// Hook vào update method của game
 - (void)Update {
     %orig;
     
     if (!g_minimap) {
-        // Tạo minimap nếu chưa có
-        UIWindow *keyWindow = [UIApplication sharedApplication].keyWindow;
-        if (keyWindow) {
-            CGRect frame = CGRectMake(keyWindow.bounds.size.width - 130, 60, 120, 120);
-            g_minimap = [[MinimapView alloc] initWithFrame:frame];
-            g_minimap.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
-            [keyWindow addSubview:g_minimap];
+        CreateMinimap();
+        return;
+    }
+    
+    // Tìm local player bằng cách duyệt các view
+    UIWindow *window = nil;
+    if (@available(iOS 13.0, *)) {
+        for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if (scene.activationState == UISceneActivationStateForegroundActive) {
+                window = scene.windows.firstObject;
+                break;
+            }
         }
     }
-    
-    if (g_minimap && g_localPlayer) {
-        // Đọc position từ local player transform
-        CGPoint pos = ReadVector3Position(g_localPlayer);
-        
-        // TODO: Lấy danh sách monster từ game
-        // Tạm thời để rỗng
-        NSMutableArray *monsters = [NSMutableArray array];
-        
-        // TODO: Lấy dungeon bounds từ game
-        NSMutableArray *dungeons = [NSMutableArray array];
-        
-        [g_minimap updateWithPlayerX:pos.x y:pos.y direction:0 monsters:monsters dungeons:dungeons];
+    if (!window) {
+        window = [UIApplication sharedApplication].windows.firstObject;
     }
+    
+    // Cập nhật minimap với position tạm thời (sẽ thay bằng real position sau khi reverse)
+    [g_minimap updatePlayerPosition:CGPointMake(500, 500) direction:0];
 }
 
 %end
 
 // ============================================
-// HOOK VÀO MONSTER VIEW ĐỂ LẤY VỊ TRÍ
-// ============================================
-%hook MobView
-
-- (void)Update {
-    %orig;
-    
-    if (!g_minimap) return;
-    
-    // Lấy vị trí của monster này
-    // Vector3 pos = [self GetPosition]; // RVA: 0x1EB91C4
-    // Thêm vào danh sách monster để vẽ trên minimap
-}
-
-%end
-
-// ============================================
-// HOOK VÀO LOCAL PLAYER CHARACTER VIEW
+// HOOK VÀO LOCAL PLAYER (nếu tìm thấy class)
 // ============================================
 %hook LocalPlayerCharacterView
 
 - (void)Awake {
     %orig;
-    g_localPlayer = self;
-    NSLog(@"[Minimap] LocalPlayer found: %p", g_localPlayer);
+    NSLog(@"[Minimap] 👤 LocalPlayerCharacterView found: %@", self);
+    CreateMinimap();
 }
 
-- (Vector3)GetPosition {
-    Vector3 pos = %orig;
+- (CGPoint)position {
+    CGPoint pos = %orig;
     if (g_minimap) {
-        CGPoint cgPos = CGPointMake(pos.x, pos.z);
-        [g_minimap updatePlayerPosition:cgPos direction:0];
+        [g_minimap updatePlayerPosition:pos direction:0];
     }
     return pos;
 }
@@ -118,34 +108,45 @@ static void *FindLocalPlayer() {
 %end
 
 // ============================================
-// HOOK VAO MINIMAP PREVIEW DE HIEN THI
+// HOOK VÀO MOB VIEW
 // ============================================
-%hook MiniMapPreview
+%hook MobView
 
-- (void)Start {
+- (void)Awake {
     %orig;
-    // Bật minimap nếu game đang tắt
-    // self.VisibleOnMinimap = YES; // offset 0x25
-    NSLog(@"[Minimap] MiniMapPreview started");
+    NSLog(@"[Minimap] 👾 MobView found: %@", self);
+}
+
+- (CGPoint)position {
+    CGPoint pos = %orig;
+    if (g_minimap && pos.x > 0 && pos.y > 0) {
+        [g_minimap updateMonsters:@[[NSValue valueWithCGPoint:pos]]];
+    }
+    return pos;
 }
 
 %end
 
 // ============================================
-// CONSTRUCTOR - KHỞI TẠO TWEAK
+// HOOK VAO MINIMAP PREVIEW
+// ============================================
+%hook MiniMapPreview
+
+- (void)Start {
+    %orig;
+    NSLog(@"[Minimap] 🗺️ MiniMapPreview started");
+    CreateMinimap();
+}
+
+%end
+
+// ============================================
+// CONSTRUCTOR
 // ============================================
 %ctor {
-    NSLog(@"[Minimap] Tweak loaded - v1.0.0");
+    NSLog(@"[Minimap] 🚀 Minimap Tweak v1.0.0 LOADED");
     
-    // Delay để game load xong
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        UIWindow *keyWindow = [UIApplication sharedApplication].keyWindow;
-        if (keyWindow && !g_minimap) {
-            CGRect frame = CGRectMake(keyWindow.bounds.size.width - 130, 60, 120, 120);
-            g_minimap = [[MinimapView alloc] initWithFrame:frame];
-            g_minimap.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
-            [keyWindow addSubview:g_minimap];
-            NSLog(@"[Minimap] Minimap view added to window");
-        }
+        CreateMinimap();
     });
 }
