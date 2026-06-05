@@ -4,13 +4,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface MinimapView : UIView
 
-// Dữ liệu hiển thị
 @property (nonatomic, assign) CGPoint playerPosition;
 @property (nonatomic, assign) CGFloat playerDirection;
 @property (nonatomic, strong) NSArray<NSValue *> *monsterPositions;
 @property (nonatomic, strong) NSArray<NSValue *> *dungeonRects;
 
-// Public methods
 - (void)updateWithPlayerX:(CGFloat)x 
                          y:(CGFloat)y 
                  direction:(CGFloat)direction
