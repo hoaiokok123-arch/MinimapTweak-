@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest  # Chuyển sang macOS để dùng bộ dịch Clang/Xcode chuẩn của Apple
+    runs-on: macos-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -20,10 +20,11 @@ jobs:
 
     - name: Cài đặt iOS SDK và công cụ ldid
       run: |
-        # Tạo thư mục và tải SDK iOS 14.5 về máy ảo
+        # SỬA Ở ĐÂY: Tạo thư mục sdks và clone chính xác SDK 14.5 về thay vì dùng curl zip
         mkdir -p $HOME/theos/sdks
-        curl -L -o $HOME/theos/sdks/iPhoneOS14.5.sdk.zip https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.zip
-        unzip -q -o $HOME/theos/sdks/iPhoneOS14.5.sdk.zip -d $HOME/theos/sdks/
+        git clone --depth=1 https://github.com/theos/sdks.git $HOME/theos/sdks-repo
+        mv $HOME/theos/sdks-repo/iPhoneOS14.5.sdk $HOME/theos/sdks/
+        rm -rf $HOME/theos/sdks-repo
         
         # Tải ldid hỗ trợ ký nhận tweak (bản dành cho macOS)
         curl -L -o $HOME/theos/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-2/ldid-macos-x86_64
@@ -32,7 +33,6 @@ jobs:
     - name: Tiến hành Build Tweak
       run: |
         export THEOS=$HOME/theos
-        # Ép buộc compiler nhận đúng bản SDK 14.5 vừa tải xuống
         export TARGET=iphone:clang:14.5:14.0
         make clean
         make package FINALPACKAGE=1
