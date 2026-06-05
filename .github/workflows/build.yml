@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15-arm64
+    runs-on: macos-latest  # <-- Sử dụng macos-latest ở đây
 
     steps:
     - uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
 
     - name: Tự động sửa định dạng dòng (Line Endings) cho file control
       run: |
-        # Loại bỏ ký tự \r (CRLF của Windows) chuyển hẳn về chuẩn Unix \n (LF) trực tiếp trên runner
+        # Lệnh sed chuẩn cho môi trường macOS để xóa ký tự \r (CRLF) của Windows
         sed -i '' 's/\r$//' control
 
     - name: Tiến hành Biên dịch và Đóng gói Tweak (.deb)
