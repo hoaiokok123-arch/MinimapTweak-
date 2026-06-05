@@ -26,17 +26,11 @@ jobs:
         ln -sf "$SDK_PATH" $HOME/theos/sdks/iPhoneOS.sdk
         echo "SDK=iphoneos" >> $GITHUB_ENV
     
-    - name: Install ldid (correct way)
+    - name: Use local ldid
       run: |
-        # Download correct ldid binary
-        curl -L -o $HOME/theos/bin/ldid https://raw.githubusercontent.com/theos/ldid/master/ldid
+        # Copy ldid từ repo vào theos/bin
+        cp ldid $HOME/theos/bin/ldid
         chmod +x $HOME/theos/bin/ldid
-        # Verify it's not empty
-        if [ ! -s $HOME/theos/bin/ldid ]; then
-          echo "ldid download failed, trying alternative..."
-          curl -L -o $HOME/theos/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-6/ldid
-          chmod +x $HOME/theos/bin/ldid
-        fi
         ls -la $HOME/theos/bin/ldid
     
     - name: Build Tweak
@@ -44,7 +38,6 @@ jobs:
         export THEOS=$HOME/theos
         make clean
         make package
-      continue-on-error: false
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -53,4 +46,3 @@ jobs:
         path: |
           .theos/obj/debug/*.dylib
           packages/*.deb
-        if-no-files-found: warn
