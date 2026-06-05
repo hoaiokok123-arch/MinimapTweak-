@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-15-arm64
 
     steps:
     - uses: actions/checkout@v4
@@ -18,31 +18,36 @@ jobs:
         echo "THEOS=$HOME/theos" >> $GITHUB_ENV
         echo "$HOME/theos/bin" >> $GITHUB_PATH
 
-    - name: Cài đặt iOS SDK & ldid qua Homebrew
+    - name: Cài đặt iOS SDK và công cụ ldid bổ trợ
       run: |
         mkdir -p $HOME/theos/sdks
         mkdir -p $HOME/theos/bin
         
-        # 1. Tải bản SDK 14.5 từ kho lưu trữ của Theos
+        # Tải SDK 14.5 từ kho lưu trữ của Theos
         git clone --depth=1 https://github.com/theos/sdks.git $HOME/theos/sdks-repo
         mv $HOME/theos/sdks-repo/iPhoneOS14.5.sdk $HOME/theos/sdks/
         rm -rf $HOME/theos/sdks-repo
         
-        # 2. Cài đặt ldid CHUẨN thông qua Homebrew để tránh lỗi tải file bằng curl
+        # Cài đặt ldid thông qua Homebrew hệ thống để ký dylib
         brew install ldid
         ln -s /opt/homebrew/bin/ldid $HOME/theos/bin/ldid
 
-    - name: Build Tweak
+    - name: Tự động sửa định dạng dòng (Line Endings) cho file control
+      run: |
+        # Loại bỏ ký tự \r (CRLF của Windows) chuyển hẳn về chuẩn Unix \n (LF) trực tiếp trên runner
+        sed -i '' 's/\r$//' control
+
+    - name: Tiến hành Biên dịch và Đóng gói Tweak (.deb)
       run: |
         export THEOS=$HOME/theos
         export TARGET=iphone:clang:14.5:14.0
         make clean
         make package FINALPACKAGE=1
 
-    - name: Upload file kết quả
+    - name: Lưu trữ File sản phẩm thu được (.deb)
       uses: actions/upload-artifact@v4
       with:
-        name: MinimapTweak
+        name: MinimapTweak-Package
         path: |
-          .theos/obj/debug/*.dylib
           packages/*.deb
+          .theos/obj/debug/*.dylib
