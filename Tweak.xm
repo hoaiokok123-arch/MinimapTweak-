@@ -1,152 +1,72 @@
-#import <UIKit/UIKit.h>
-#import <Foundation/Foundation.h>
-#import <objc/runtime.h>
 #import "MinimapView.h"
 
-static MinimapView *g_minimap = nil;
+@implementation MinimapView
 
-// ============================================
-// HÀM TIỆN ÍCH ĐỌC TỌA ĐỘ
-// ============================================
-static CGPoint ReadPositionFromObject(void *obj) {
-    if (!obj) return CGPointZero;
-    
-    // Thử đọc qua selector getPosition nếu có
-    if ([obj respondsToSelector:@selector(position)]) {
-        CGPoint pos = [(id)obj position];
-        return pos;
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.7];
+        self.layer.cornerRadius = 10;
+        self.layer.borderWidth = 1;
+        self.layer.borderColor = [UIColor whiteColor].CGColor;
+        self.userInteractionEnabled = NO;
+        self.playerPosition = CGPointMake(50, 50);
+        self.monsterPositions = @[];
     }
-    
-    // Fallback: đọc từ memory offset (cần reverse để biết offset chính xác)
-    // float x = *(float *)((uintptr_t)obj + 0x30);
-    // float y = *(float *)((uintptr_t)obj + 0x34);
-    
-    return CGPointZero;
+    return self;
 }
 
-// ============================================
-// TẠO MINIMAP
-// ============================================
-static void CreateMinimap() {
-    if (g_minimap) return;
+- (void)drawRect:(CGRect)rect {
+    [super drawRect:rect];
     
-    UIWindow *window = nil;
-    if (@available(iOS 13.0, *)) {
-        for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if (scene.activationState == UISceneActivationStateForegroundActive) {
-                window = scene.windows.firstObject;
-                break;
-            }
-        }
-    }
-    if (!window) {
-        window = [UIApplication sharedApplication].windows.firstObject;
-    }
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    if (!context) return;
     
-    if (window) {
-        CGRect frame = CGRectMake(window.bounds.size.width - 130, 60, 120, 120);
-        g_minimap = [[MinimapView alloc] initWithFrame:frame];
-        g_minimap.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
-        [window addSubview:g_minimap];
-        NSLog(@"[Minimap] ✅ Created minimap");
-    }
-}
-
-// ============================================
-// HOOK UPDATE - Cập nhật minimap mỗi frame
-// ============================================
-%hook NSObject
-
-// Hook vào update method của game
-- (void)Update {
-    %orig;
+    CGFloat w = rect.size.width;
+    CGFloat h = rect.size.height;
     
-    if (!g_minimap) {
-        CreateMinimap();
-        return;
+    // Vẽ player (xanh)
+    CGContextSetFillColorWithColor(context, [UIColor blueColor].CGColor);
+    CGContextFillEllipseInRect(context, CGRectMake(w/2 - 5, h/2 - 5, 10, 10));
+    
+    // Vẽ monster (đỏ)
+    for (NSValue *val in self.monsterPositions) {
+        CGPoint pos = [val CGPointValue];
+        CGContextSetFillColorWithColor(context, [UIColor redColor].CGColor);
+        CGContextFillEllipseInRect(context, CGRectMake(pos.x, pos.y, 6, 6));
     }
     
-    // Tìm local player bằng cách duyệt các view
-    UIWindow *window = nil;
-    if (@available(iOS 13.0, *)) {
-        for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if (scene.activationState == UISceneActivationStateForegroundActive) {
-                window = scene.windows.firstObject;
-                break;
-            }
-        }
-    }
-    if (!window) {
-        window = [UIApplication sharedApplication].windows.firstObject;
-    }
-    
-    // Cập nhật minimap với position tạm thời (sẽ thay bằng real position sau khi reverse)
-    [g_minimap updatePlayerPosition:CGPointMake(500, 500) direction:0];
+    // Label
+    NSDictionary *attrs = @{NSFontAttributeName: [UIFont boldSystemFontOfSize:8], NSForegroundColorAttributeName: [UIColor whiteColor]};
+    [@"MINIMAP" drawInRect:CGRectMake(4, 4, 50, 10) withAttributes:attrs];
 }
 
-%end
-
-// ============================================
-// HOOK VÀO LOCAL PLAYER (nếu tìm thấy class)
-// ============================================
-%hook LocalPlayerCharacterView
-
-- (void)Awake {
-    %orig;
-    NSLog(@"[Minimap] 👤 LocalPlayerCharacterView found: %@", self);
-    CreateMinimap();
-}
-
-- (CGPoint)position {
-    CGPoint pos = %orig;
-    if (g_minimap) {
-        [g_minimap updatePlayerPosition:pos direction:0];
-    }
-    return pos;
-}
-
-%end
-
-// ============================================
-// HOOK VÀO MOB VIEW
-// ============================================
-%hook MobView
-
-- (void)Awake {
-    %orig;
-    NSLog(@"[Minimap] 👾 MobView found: %@", self);
-}
-
-- (CGPoint)position {
-    CGPoint pos = %orig;
-    if (g_minimap && pos.x > 0 && pos.y > 0) {
-        [g_minimap updateMonsters:@[[NSValue valueWithCGPoint:pos]]];
-    }
-    return pos;
-}
-
-%end
-
-// ============================================
-// HOOK VAO MINIMAP PREVIEW
-// ============================================
-%hook MiniMapPreview
-
-- (void)Start {
-    %orig;
-    NSLog(@"[Minimap] 🗺️ MiniMapPreview started");
-    CreateMinimap();
-}
-
-%end
-
-// ============================================
-// CONSTRUCTOR
-// ============================================
-%ctor {
-    NSLog(@"[Minimap] 🚀 Minimap Tweak v1.0.0 LOADED");
-    
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        CreateMinimap();
+- (void)updatePlayerPosition:(CGPoint)position direction:(CGFloat)direction {
+    self.playerPosition = position;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self setNeedsDisplay];
     });
 }
+
+- (void)updateMonsters:(NSArray<NSValue *> *)monsters {
+    self.monsterPositions = monsters;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self setNeedsDisplay];
+    });
+}
+
+- (void)updateWithPlayerX:(CGFloat)x y:(CGFloat)y direction:(CGFloat)direction monsters:(NSArray *)monsters dungeons:(NSArray *)dungeons {
+    self.playerPosition = CGPointMake(x, y);
+    self.monsterPositions = monsters;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self setNeedsDisplay];
+    });
+}
+
+- (void)refresh {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self setNeedsDisplay];
+    });
+}
+
+@end
