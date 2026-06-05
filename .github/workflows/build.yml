@@ -18,19 +18,19 @@ jobs:
         echo "THEOS=$HOME/theos" >> $GITHUB_ENV
         echo "$HOME/theos/bin" >> $GITHUB_PATH
 
-    - name: Cài đặt iOS SDK & ldid
+    - name: Cài đặt iOS SDK & ldid qua Homebrew
       run: |
         mkdir -p $HOME/theos/sdks
         mkdir -p $HOME/theos/bin
         
-        # 1. Tải bản SDK 14.5 từ kho lưu trữ chính thức của Theos
+        # 1. Tải bản SDK 14.5 từ kho lưu trữ của Theos
         git clone --depth=1 https://github.com/theos/sdks.git $HOME/theos/sdks-repo
         mv $HOME/theos/sdks-repo/iPhoneOS14.5.sdk $HOME/theos/sdks/
         rm -rf $HOME/theos/sdks-repo
         
-        # 2. Tải ldid CHUẨN dành cho macOS ARM64 (Sửa lỗi "Not: command not found")
-        curl -L https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-2/ldid-macos-arm64 -o $HOME/theos/bin/ldid
-        chmod +x $HOME/theos/bin/ldid
+        # 2. Cài đặt ldid CHUẨN thông qua Homebrew để tránh lỗi tải file bằng curl
+        brew install ldid
+        ln -s /opt/homebrew/bin/ldid $HOME/theos/bin/ldid
 
     - name: Build Tweak
       run: |
