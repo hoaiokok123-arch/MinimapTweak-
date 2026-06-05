@@ -39,7 +39,7 @@ jobs:
         make clean
         make package FINALPACKAGE=1
 
-    - name: Upload file kết quả
+    - name: Upload file kết quả (.deb và .dylib)
       uses: actions/upload-artifact@v4
       with:
         name: MinimapTweak
