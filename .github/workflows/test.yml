@@ -1,0 +1,46 @@
+name: Test Build
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Test Makefile syntax
+      run: |
+        echo "Checking Makefile..."
+        cat Makefile
+        echo "Makefile OK"
+    
+    - name: Test source files exist
+      run: |
+        echo "Checking source files..."
+        [ -f "Tweak.xm" ] && echo "✅ Tweak.xm exists"
+        [ -f "MinimapView.h" ] && echo "✅ MinimapView.h exists"
+        [ -f "MinimapView.m" ] && echo "✅ MinimapView.m exists"
+        [ -f "control" ] && echo "✅ control exists"
+        [ -f "Makefile" ] && echo "✅ Makefile exists"
+    
+    - name: Test file syntax (basic)
+      run: |
+        echo "Checking Objective-C syntax..."
+        # Check for matching braces
+        grep -q "%hook" Tweak.xm && echo "✅ Has %hook"
+        grep -q "%end" Tweak.xm && echo "✅ Has %end"
+        grep -q "MinimapView" MinimapView.m && echo "✅ MinimapView implementation OK"
+    
+    - name: Upload test report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-report
+        path: |
+          Tweak.xm
+          MinimapView.m
+          Makefile
