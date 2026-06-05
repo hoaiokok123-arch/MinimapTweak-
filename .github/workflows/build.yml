@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest  # Chuyển sang macOS để có sẵn Xcode
+    runs-on: macos-latest
     
     steps:
     - name: Checkout code
@@ -19,20 +19,25 @@ jobs:
         echo "THEOS=$HOME/theos" >> $GITHUB_ENV
         echo "$HOME/theos/bin" >> $GITHUB_PATH
     
-    - name: Setup iOS SDK from Xcode
+    - name: Setup iOS SDK
       run: |
-        # Tìm SDK trong Xcode
         SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
-        echo "Found SDK at: $SDK_PATH"
-        # Link SDK to Theos
         mkdir -p $HOME/theos/sdks
         ln -sf "$SDK_PATH" $HOME/theos/sdks/iPhoneOS.sdk
         echo "SDK=iphoneos" >> $GITHUB_ENV
     
-    - name: Install ldid
+    - name: Install ldid (correct way)
       run: |
-        curl -L -o $HOME/theos/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-2/ldid
+        # Download correct ldid binary
+        curl -L -o $HOME/theos/bin/ldid https://raw.githubusercontent.com/theos/ldid/master/ldid
         chmod +x $HOME/theos/bin/ldid
+        # Verify it's not empty
+        if [ ! -s $HOME/theos/bin/ldid ]; then
+          echo "ldid download failed, trying alternative..."
+          curl -L -o $HOME/theos/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-6/ldid
+          chmod +x $HOME/theos/bin/ldid
+        fi
+        ls -la $HOME/theos/bin/ldid
     
     - name: Build Tweak
       run: |
@@ -41,7 +46,7 @@ jobs:
         make package
       continue-on-error: false
     
-    - name: Upload dylib artifact
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: MinimapTweak
@@ -49,15 +54,3 @@ jobs:
           .theos/obj/debug/*.dylib
           packages/*.deb
         if-no-files-found: warn
-    
-    - name: Create Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v1.0.${{ github.run_number }}
-        name: Release v1.0.${{ github.run_number }}
-        files: |
-          .theos/obj/debug/*.dylib
-          packages/*.deb
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
