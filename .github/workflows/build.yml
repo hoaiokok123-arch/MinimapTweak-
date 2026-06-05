@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15-arm64
+    runs-on: macos-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
         make clean
         make package FINALPACKAGE=1
 
-    - name: Upload file kết quả (.deb và .dylib)
+    - name: Upload file kết quả
       uses: actions/upload-artifact@v4
       with:
         name: MinimapTweak
