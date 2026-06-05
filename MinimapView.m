@@ -7,11 +7,12 @@
     if (self) {
         self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.7];
         self.layer.cornerRadius = 10;
-        self.layer.borderWidth = 1;
+        self.layer.borderWidth = 1.5;
         self.layer.borderColor = [UIColor whiteColor].CGColor;
         self.userInteractionEnabled = NO;
-        self.playerPosition = CGPointMake(50, 50);
+        self.playerPosition = CGPointMake(frame.size.width / 2, frame.size.height / 2);
         self.monsterPositions = @[];
+        self.dungeonRects = @[];
     }
     return self;
 }
@@ -25,48 +26,51 @@
     CGFloat w = rect.size.width;
     CGFloat h = rect.size.height;
     
-    // Vẽ player (xanh)
-    CGContextSetFillColorWithColor(context, [UIColor blueColor].CGColor);
-    CGContextFillEllipseInRect(context, CGRectMake(w/2 - 5, h/2 - 5, 10, 10));
-    
-    // Vẽ monster (đỏ)
+    // 1. Vẽ Quái vật (Màu Đỏ)
     for (NSValue *val in self.monsterPositions) {
         CGPoint pos = [val CGPointValue];
-        CGContextSetFillColorWithColor(context, [UIColor redColor].CGColor);
-        CGContextFillEllipseInRect(context, CGRectMake(pos.x, pos.y, 6, 6));
+        // Chỉ vẽ nếu tọa độ nằm trong khung hiển thị của Minimap
+        if (pos.x >= 0 && pos.x <= w && pos.y >= 0 && pos.y <= h) {
+            CGContextSetFillColorWithColor(context, [UIColor redColor].CGColor);
+            CGContextFillEllipseInRect(context, CGRectMake(pos.x - 3, pos.y - 3, 6, 6));
+        }
     }
     
-    // Label
-    NSDictionary *attrs = @{NSFontAttributeName: [UIFont boldSystemFontOfSize:8], NSForegroundColorAttributeName: [UIColor whiteColor]};
-    [@"MINIMAP" drawInRect:CGRectMake(4, 4, 50, 10) withAttributes:attrs];
-}
-
-- (void)updatePlayerPosition:(CGPoint)position direction:(CGFloat)direction {
-    self.playerPosition = position;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self setNeedsDisplay];
-    });
-}
-
-- (void)updateMonsters:(NSArray<NSValue *> *)monsters {
-    self.monsterPositions = monsters;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self setNeedsDisplay];
-    });
+    // 2. Vẽ Người chơi (Xanh Dương) ở chính giữa tâm Minimap
+    CGContextSetFillColorWithColor(context, [UIColor systemBlueColor].CGColor);
+    CGContextFillEllipseInRect(context, CGRectMake(w/2 - 5, h/2 - 5, 10, 10));
+    
+    // Vẽ hướng nhìn của người chơi dựa trên biến playerDirection
+    CGContextSetStrokeColorWithColor(context, [UIColor whiteColor].CGColor);
+    CGContextSetLineWidth(context, 2.0);
+    CGContextMoveToPoint(context, w/2, h/2);
+    CGFloat targetX = w/2 + 15 * cos(self.playerDirection);
+    CGFloat targetY = h/2 + 15 * sin(self.playerDirection);
+    CGContextAddLineToPoint(context, targetX, targetY);
+    CGContextStrokePath(context);
+    
+    // 3. Chữ hiển thị
+    NSDictionary *attrs = @{
+        NSFontAttributeName: [UIFont boldSystemFontOfSize:9],
+        NSForegroundColorAttributeName: [UIColor greenColor]
+    };
+    [@"MINIMAP RUNNING" drawInRect:CGRectMake(6, 4, 100, 12) withAttributes:attrs];
 }
 
 - (void)updateWithPlayerX:(CGFloat)x y:(CGFloat)y direction:(CGFloat)direction monsters:(NSArray *)monsters dungeons:(NSArray *)dungeons {
-    self.playerPosition = CGPointMake(x, y);
+    self.playerDirection = direction;
     self.monsterPositions = monsters;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self setNeedsDisplay];
-    });
+    self.dungeonRects = dungeons;
+    [self refresh];
 }
 
 - (void)refresh {
-    dispatch_async(dispatch_get_main_queue(), ^{
+    if ([NSThread isMainThread]) {
         [self setNeedsDisplay];
-    });
+    } else {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self setNeedsDisplay];
+        });
+    }
 }
-
 @end
