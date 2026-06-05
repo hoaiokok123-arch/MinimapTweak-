@@ -7,45 +7,42 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-15-arm64
 
     steps:
-    - name: Checkout mã nguồn
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Tải và cài đặt cấu trúc khung phát triển Theos
+    - name: Tải và cài đặt Theos
       run: |
         git clone --recursive https://github.com/theos/theos.git $HOME/theos
         echo "THEOS=$HOME/theos" >> $GITHUB_ENV
         echo "$HOME/theos/bin" >> $GITHUB_PATH
 
-    - name: Cài đặt iOS SDK và Cấu hình ldid chuẩn
+    - name: Cài đặt iOS SDK & ldid
       run: |
-        # 1. Tạo các thư mục cần thiết
         mkdir -p $HOME/theos/sdks
         mkdir -p $HOME/theos/bin
         
-        # 2. Clone repo chứa các SDK từ theos chính thức và lấy bản 14.5
+        # 1. Tải bản SDK 14.5 từ kho lưu trữ chính thức của Theos
         git clone --depth=1 https://github.com/theos/sdks.git $HOME/theos/sdks-repo
         mv $HOME/theos/sdks-repo/iPhoneOS14.5.sdk $HOME/theos/sdks/
         rm -rf $HOME/theos/sdks-repo
         
-        # 3. Tải ldid trực tiếp từ nguồn release chính thức của theos dành cho macOS arm64
-        curl -L https://github.com/theos/ldid/releases/latest/download/ldid-macos-arm64 -o $HOME/theos/bin/ldid
+        # 2. Tải ldid CHUẨN dành cho macOS ARM64 (Sửa lỗi "Not: command not found")
+        curl -L https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-2/ldid-macos-arm64 -o $HOME/theos/bin/ldid
         chmod +x $HOME/theos/bin/ldid
 
-    - name: Tiến hành Biên dịch Tweak (Build Package)
+    - name: Build Tweak
       run: |
         export THEOS=$HOME/theos
-        # Cấu hình build cụ thể cho kiến trúc iOS 14
         export TARGET=iphone:clang:14.5:14.0
         make clean
         make package FINALPACKAGE=1
 
-    - name: Lưu trữ và tải lên file kết quả (.deb và .dylib)
+    - name: Upload file kết quả
       uses: actions/upload-artifact@v4
       with:
-        name: MinimapTweak-Build
+        name: MinimapTweak
         path: |
           .theos/obj/debug/*.dylib
           packages/*.deb
