@@ -12,11 +12,4 @@ minimaptweak_CFLAGS = -fobjc-arc
 minimaptweak_FRAMEWORKS = UIKit CoreGraphics Foundation
 minimaptweak_OBJC_FILES = MinimapView.m
 
-# Bỏ qua signing hoàn toàn
-export CODESIGN_ALLOCATE = /bin/cat
-export CODESIGN = /bin/cat
-
 include $(THEOS_MAKE_PATH)/tweak.mk
-
-after-install::
-	install.exec "killall -9 'Albion Online' 2>/dev/null || true"
