@@ -7,7 +7,6 @@ on:
 
 jobs:
   build:
-    # Cấu hình chạy trên hệ điều hành macOS (phù hợp với môi trường Xcode/Clang để build tweak iOS)
     runs-on: macos-15
 
     steps:
@@ -20,28 +19,25 @@ jobs:
         echo "THEOS=$HOME/theos" >> $GITHUB_ENV
         echo "$HOME/theos/bin" >> $GITHUB_PATH
 
-    - name: Cài đặt iOS SDK và Tự động sửa lỗi ldid
+    - name: Cài đặt iOS SDK và Cấu hình ldid chuẩn
       run: |
-        # Tạo thư mục chứa SDKs
+        # 1. Tạo các thư mục cần thiết
         mkdir -p $HOME/theos/sdks
+        mkdir -p $HOME/theos/bin
         
-        # Clone repo chứa các SDK sạch từ theos chính thức
+        # 2. Clone repo chứa các SDK từ theos chính thức và lấy bản 14.5
         git clone --depth=1 https://github.com/theos/sdks.git $HOME/theos/sdks-repo
-        
-        # Di chuyển duy nhất bản SDK 14.5 cần dùng vào đúng vị trí
         mv $HOME/theos/sdks-repo/iPhoneOS14.5.sdk $HOME/theos/sdks/
-        
-        # Xóa bỏ thư mục tạm để giải phóng không gian bộ nhớ
         rm -rf $HOME/theos/sdks-repo
         
-        # SỬA LỖI TẠI ĐÂY: Dùng lệnh tích hợp sẵn của Theos để tự động nhận diện 
-        # hệ điều hành (macOS arm64) và tải về bản ldid chuẩn, thay vì tải thủ công link lỗi.
-        $HOME/theos/bin/doctor
+        # 3. Tải ldid trực tiếp từ nguồn release chính thức của theos dành cho macOS arm64
+        curl -L https://github.com/theos/ldid/releases/latest/download/ldid-macos-arm64 -o $HOME/theos/bin/ldid
+        chmod +x $HOME/theos/bin/ldid
 
     - name: Tiến hành Biên dịch Tweak (Build Package)
       run: |
         export THEOS=$HOME/theos
-        # Định nghĩa target biên dịch: Sử dụng SDK 14.5, hỗ trợ tối thiểu từ iOS 14.0 trở lên
+        # Cấu hình build cụ thể cho kiến trúc iOS 14
         export TARGET=iphone:clang:14.5:14.0
         make clean
         make package FINALPACKAGE=1
