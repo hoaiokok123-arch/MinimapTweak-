@@ -1,4 +1,14 @@
-#import "MinimapView.h"
+#import <UIKit/UIKit.h>
+
+// ============================================
+// MINIMAP VIEW CLASS (gộp luôn vào đây)
+// ============================================
+@interface MinimapView : UIView
+@property (nonatomic, assign) CGPoint playerPosition;
+@property (nonatomic, strong) NSArray<NSValue *> *monsterPositions;
+- (void)updatePlayerPosition:(CGPoint)position direction:(CGFloat)direction;
+- (void)updateMonsters:(NSArray<NSValue *> *)monsters;
+@end
 
 @implementation MinimapView
 
@@ -55,18 +65,51 @@
     });
 }
 
-- (void)updateWithPlayerX:(CGFloat)x y:(CGFloat)y direction:(CGFloat)direction monsters:(NSArray *)monsters dungeons:(NSArray *)dungeons {
-    self.playerPosition = CGPointMake(x, y);
-    self.monsterPositions = monsters;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self setNeedsDisplay];
-    });
-}
-
-- (void)refresh {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self setNeedsDisplay];
-    });
-}
-
 @end
+
+// ============================================
+// TWEAK MAIN
+// ============================================
+static MinimapView *g_minimap = nil;
+
+static void CreateMinimap() {
+    if (g_minimap) return;
+    
+    UIWindow *window = nil;
+    for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if (scene.activationState == UISceneActivationStateForegroundActive) {
+            window = scene.windows.firstObject;
+            break;
+        }
+    }
+    if (!window) {
+        window = [UIApplication sharedApplication].windows.firstObject;
+    }
+    
+    if (window) {
+        CGRect frame = CGRectMake(window.bounds.size.width - 130, 60, 120, 120);
+        g_minimap = [[MinimapView alloc] initWithFrame:frame];
+        g_minimap.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
+        [window addSubview:g_minimap];
+        NSLog(@"[Minimap] Created!");
+    }
+}
+
+%hook UIViewController
+
+- (void)viewDidAppear:(BOOL)animated {
+    %orig;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        CreateMinimap();
+    });
+}
+
+%end
+
+%ctor {
+    NSLog(@"[Minimap] Tweak loaded!");
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        CreateMinimap();
+    });
+}
