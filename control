@@ -1,9 +1,9 @@
-Package: com.yourname.minimaptweak
+Package: com.hoaiokok.minimaptweak
 Name: Minimap Tweak
 Version: 1.0.0
 Architecture: iphoneos-arm64
-Description: Hiển thị minimap với player, monster, dungeon
-Maintainer: YourName
-Author: YourName
+Description: Hiển thị Bản đồ thu nhỏ (Minimap) cho game Albion Online
+Maintainer: Hoai
+Author: Hoai
 Section: Tweaks
 Depends: mobilesubstrate
