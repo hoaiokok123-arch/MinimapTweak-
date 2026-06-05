@@ -7,33 +7,40 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Chạy trên Ubuntu
+    runs-on: macos-latest  # Chuyển sang macOS để dùng bộ dịch Clang/Xcode chuẩn của Apple
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Cài đặt công cụ build
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y git build-essential unzip curl
-
-    - name: Tải và cài đặt Theos
+    - name: Cài đặt nâng cao và clone Theos
       run: |
         git clone --recursive https://github.com/theos/theos.git $HOME/theos
         echo "THEOS=$HOME/theos" >> $GITHUB_ENV
         echo "$HOME/theos/bin" >> $GITHUB_PATH
 
-    - name: Build Tweak
+    - name: Cài đặt iOS SDK và công cụ ldid
+      run: |
+        # Tạo thư mục và tải SDK iOS 14.5 về máy ảo
+        mkdir -p $HOME/theos/sdks
+        curl -L -o $HOME/theos/sdks/iPhoneOS14.5.sdk.zip https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.zip
+        unzip -q -o $HOME/theos/sdks/iPhoneOS14.5.sdk.zip -d $HOME/theos/sdks/
+        
+        # Tải ldid hỗ trợ ký nhận tweak (bản dành cho macOS)
+        curl -L -o $HOME/theos/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus-2/ldid-macos-x86_64
+        chmod +x $HOME/theos/bin/ldid
+
+    - name: Tiến hành Build Tweak
       run: |
         export THEOS=$HOME/theos
-        export TARGET=iphone:clang:latest:14.0
+        # Ép buộc compiler nhận đúng bản SDK 14.5 vừa tải xuống
+        export TARGET=iphone:clang:14.5:14.0
         make clean
-        make package
+        make package FINALPACKAGE=1
 
-    - name: Upload file kết quả
+    - name: Tải file kết quả lên GitHub Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: MinimapTweak
+        name: MinimapTweak-Output
         path: |
           .theos/obj/debug/*.dylib
           packages/*.deb
